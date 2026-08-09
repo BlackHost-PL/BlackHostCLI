@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 BlackHost.pl
+
+set -Eeuo pipefail
+
+if [[ -z "${BLACKHOST_ROOT:-}" ]]; then
+  BLACKHOST_ENTRYPOINT=$(readlink -f "${BASH_SOURCE[0]}")
+  BLACKHOST_ROOT=$(cd "$(dirname "$BLACKHOST_ENTRYPOINT")/.." && pwd)
+fi
+
+source "${BLACKHOST_ROOT}/lib/ui.sh"
+source "${BLACKHOST_ROOT}/lib/core.sh"
+source "${BLACKHOST_ROOT}/modules/pterodactyl.sh"
+source "${BLACKHOST_ROOT}/modules/blueprint.sh"
+source "${BLACKHOST_ROOT}/modules/nginx.sh"
+source "${BLACKHOST_ROOT}/modules/speedtest.sh"
+source "${BLACKHOST_ROOT}/modules/installer.sh"
+
+show_status() {
+  ui_header "STATUS USŁUG"
+  ui_section "KOMPONENTY"
+  pterodactyl_status
+  blueprint_status
+  nginx_status
+}
+
+show_system_summary() {
+  local system_name hostname_value uptime_value ip_value
+  hostname_value=$(hostname 2>/dev/null || printf 'nieznany')
+  if [[ -r /etc/os-release ]]; then
+    system_name=$(. /etc/os-release; printf '%s' "${PRETTY_NAME:-$ID}")
+  else
+    system_name=$(uname -sr)
+  fi
+  uptime_value=$(uptime -p 2>/dev/null | sed 's/^up //' || printf 'brak danych')
+  ip_value=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+  ip_value=${ip_value:-brak}
+
+  printf '\n'
+  ui_key_value "HOST" "$hostname_value"
+  ui_key_value "SYSTEM" "$system_name"
+  ui_key_value "UPTIME" "$uptime_value"
+  ui_key_value "IP" "$ip_value"
+}
+
+main_menu() {
+  local choice
+  while :; do
+    ui_header "SERVER TOOLKIT"
+    show_system_summary
+    ui_section "ZARZĄDZANIE"
+    ui_option 1 "Instalator" "Pterodactyl, Nginx i kolejne programy"
+    ui_option 2 "Stan usług" "Szybka diagnostyka"
+    ui_option 3 "Speedtest" "Oficjalny klient Ookla"
+    ui_option 0 "Wyjdź" "Powrót do terminala"
+    ui_menu_prompt choice
+
+    case "$choice" in
+      1) installer_menu ;;
+      2) show_status; ui_pause escape ;;
+      3) speedtest_run; ui_pause ;;
+      0) return 0 ;;
+      *) ui_error "Nieprawidłowa opcja."; sleep 1 ;;
+    esac
+  done
+}
+
+run_interactive() {
+  ui_screen_enter
+  trap 'ui_screen_leave' EXIT
+  trap 'exit 130' INT TERM HUP
+  "$@"
+  ui_screen_leave
+  trap - EXIT INT TERM HUP
+}
+
+case "${1:-menu}" in
+  menu) run_interactive main_menu ;;
+  installer) run_interactive installer_menu ;;
+  status) show_status; printf '\n' ;;
+  pterodactyl) run_interactive pterodactyl_menu ;;
+  nginx) run_interactive nginx_menu ;;
+  speedtest) speedtest_run; printf '\n' ;;
+  version|--version|-v) printf 'blackhost %s\n' "$BLACKHOST_VERSION" ;;
+  help|--help|-h)
+    for help_line in \
+      "Użycie: blackhost [menu|installer|status|pterodactyl|nginx|speedtest|version]" \
+      "Bez argumentu uruchamiane jest interaktywne menu." \
+      "Ustaw BLACKHOST_ASCII=1, aby wyłączyć znaki Unicode." \
+      "Ustaw BLACKHOST_FORCE_CLEAR=1, aby wymusić odrysowywanie ekranu." \
+      "Ustaw BLACKHOST_NO_ALT_SCREEN=1, aby wyłączyć osobny ekran terminala."
+    do
+      ui_safe_text "$help_line"
+      printf '%s\n' "$BH_SAFE_TEXT"
+    done
+    ;;
+  *)
+    ui_error "Nieznana komenda: $1"
+    exit 2
+    ;;
+esac

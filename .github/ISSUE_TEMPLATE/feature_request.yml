@@ -1,0 +1,24 @@
+name: Propozycja funkcji
+description: Zaproponuj nowe zachowanie lub obsługiwany program
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Jaki problem rozwiązuje ta funkcja?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proponowane rozwiązanie
+    validations:
+      required: true
+  - type: textarea
+    id: upstream
+    attributes:
+      label: Dokumentacja lub projekt upstream
+      description: Dodaj link, jeżeli propozycja dotyczy zewnętrznego programu.
+

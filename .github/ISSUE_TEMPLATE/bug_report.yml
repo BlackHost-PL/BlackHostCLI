@@ -1,0 +1,42 @@
+name: Błąd
+description: Zgłoś powtarzalny problem z BlackHost CLI
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Nie publikuj sekretów ani podatności bezpieczeństwa. Podatności zgłaszaj zgodnie z SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Wersja BlackHost CLI
+      placeholder: Wynik polecenia blackhost version
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System i architektura
+      placeholder: Debian 13, amd64
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Opis problemu
+      description: Co się wydarzyło i czego oczekiwano?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Kroki odtworzenia
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Oczyszczony fragment logu
+      description: Usuń hasła, tokeny, domeny klientów i adresy IP.
+
