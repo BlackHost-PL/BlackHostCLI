@@ -40,7 +40,8 @@ z menedżerem pakietów APT.
 Sklonuj repozytorium, przejdź do katalogu projektu i uruchom instalator:
 
 ```bash
-cd blackhost-cli
+git clone https://github.com/BlackHost-PL/BlackHostCLI.git
+cd BlackHostCLI
 sudo bash install.sh
 blackhost
 ```
