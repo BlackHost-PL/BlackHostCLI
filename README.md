@@ -15,8 +15,10 @@ popularnych usług hostingowych.
 - aktualizacja, naprawa i pełne odinstalowanie Panelu oraz Wings;
 - instalacja i odinstalowanie Blueprint Framework;
 - instalacja i odinstalowanie Nginx z kontrolą zachowania konfiguracji;
+- instalacja phpMyAdmin z osobną domeną, Nginx i opcjonalnym SSL Let's Encrypt;
 - stan wykrytych usług;
 - test łącza przez oficjalny pakiet Speedtest CLI firmy Ookla;
+- bezpieczna samoaktualizacja CLI z kontrolą SHA-256 i automatycznym rollbackiem;
 - czytelny postęp operacji i pełne logi w `/var/log/blackhost`;
 - obsługa SSH, konsoli Linux/VNC, Unicode oraz trybu ASCII.
 
@@ -35,6 +37,12 @@ architektury `x86_64`; Wings obsługuje również `arm64`.
 Blueprint jest obsługiwany dla natywnej instalacji Panelu na Debianie lub Ubuntu
 z menedżerem pakietów APT.
 
+Moduł phpMyAdmin obsługuje Debian i Ubuntu. Instaluje przypięte oficjalne
+wydanie `5.2.3`, PHP-FPM i wymagane rozszerzenia oraz konfiguruje osobny host
+Nginx. Logowanie korzysta z kont MariaDB/MySQL. Instalator może utworzyć
+dedykowanego administratora bazy z losowym hasłem wyświetlanym jednorazowo;
+hasło nie jest zapisywane przez BlackHost.
+
 ## Instalacja
 
 Sklonuj repozytorium, przejdź do katalogu projektu i uruchom instalator:
@@ -50,8 +58,21 @@ Instalator kopiuje aplikację do `/opt/blackhost` i tworzy dowiązanie
 `/usr/local/bin/blackhost`. Po udanej instalacji katalog ze sklonowanym
 repozytorium można usunąć.
 
-Aktualizacja CLI odbywa się przez pobranie nowszej wersji repozytorium i ponowne
-uruchomienie `sudo bash install.sh`. Dane działania i logi nie są wtedy usuwane.
+Po pierwszej instalacji kolejne stabilne wydania można zainstalować poleceniem:
+
+```bash
+sudo blackhost update
+```
+
+Aktualizator pobiera wersjonowane archiwum wydania oraz jego sumę SHA-256,
+sprawdza strukturę i składnię skryptów, przygotowuje nową instalację obok obecnej,
+a następnie podmienia ją dopiero po udanej walidacji. W razie błędu aktywacji
+poprzednia wersja jest automatycznie przywracana. Dane działania i logi nie są
+usuwane. Samo sprawdzenie dostępności aktualizacji nie wymaga zmian w systemie:
+
+```bash
+blackhost update --check
+```
 
 ## Komendy
 
@@ -60,8 +81,10 @@ blackhost              menu główne
 blackhost installer    katalog instalatorów
 blackhost pterodactyl  operacje Pterodactyla
 blackhost nginx        operacje Nginx
+blackhost phpmyadmin   operacje phpMyAdmin
 blackhost status       stan wykrytych usług
 blackhost speedtest    test łącza przez Speedtest CLI
+blackhost update       aktualizacja BlackHost CLI
 blackhost version      wersja BlackHost CLI
 blackhost help         pomoc
 ```
@@ -96,6 +119,10 @@ zmienne środowiskowe:
   konkretnej wersji i sumy SHA-256;
 - hasła nie są zapisywane w stanie BlackHost ani celowo wypisywane do logów;
 - aktualizator Panelu weryfikuje środowisko, strukturę archiwum i zachowuje `.env`;
+- aktualizator CLI przyjmuje tylko stabilne wydania `vX.Y.Z`, weryfikuje SHA-256
+  oraz uruchamia test składni przed podmianą instalacji;
+- phpMyAdmin używa uwierzytelniania `cookie`, łączy się wyłącznie z lokalną bazą,
+  ma wyłączony wybór dowolnego hosta i ograniczanie żądań w Nginx;
 - odinstalowanie Panelu i Wings korzysta z modułu odinstalowania upstreamu;
 - destrukcyjne operacje wymagają wyraźnego potwierdzenia.
 

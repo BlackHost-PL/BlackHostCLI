@@ -31,3 +31,10 @@ otworzyć zgłoszenie i opisać proponowane zachowanie.
 
 Wkład do projektu jest udostępniany na warunkach `GPL-3.0-only`, takich samych
 jak pozostały kod BlackHost CLI.
+
+## Wydanie
+
+Numer w `BLACKHOST_VERSION` musi być zgodny z tagiem `vX.Y.Z`. Wysłanie tagu
+uruchamia workflow `release.yml`, który ponownie wykonuje testy, buduje
+wersjonowane archiwum wraz z SHA-256 i publikuje oba pliki w GitHub Releases.
+Nie należy ręcznie podmieniać artefaktów istniejącego wydania.

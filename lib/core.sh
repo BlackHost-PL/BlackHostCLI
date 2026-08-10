@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 BlackHost.pl
 
-BLACKHOST_VERSION="1.0.0"
+BLACKHOST_VERSION="1.1.0"
 BLACKHOST_STATE_DIR="${BLACKHOST_STATE_DIR:-/var/lib/blackhost}"
 BLACKHOST_LOG_DIR="${BLACKHOST_LOG_DIR:-/var/log/blackhost}"
 
@@ -99,7 +99,69 @@ progress_stage() {
   ((package_unpacked > package_total)) && package_unpacked=$package_total
   ((package_configured > package_total)) && package_configured=$package_total
 
-  if [[ "$action" == "pterodactyl-panel-install" ]]; then
+  if [[ "$action" == "blackhost-cli-update" ]]; then
+    if [[ "$snapshot" == *"BlackHost stage: cli update complete"* ]]; then
+      detected_percent=98; detected_label="Nowa wersja jest gotowa"
+    elif [[ "$snapshot" == *"BlackHost stage: cli update swap"* ]]; then
+      detected_percent=90; detected_label="Aktywowanie nowej wersji"
+    elif [[ "$snapshot" == *"BlackHost stage: cli update install"* ]]; then
+      detected_percent=72; detected_label="Przygotowywanie nowej instalacji"
+    elif [[ "$snapshot" == *"BlackHost stage: cli update validate"* ]]; then
+      detected_percent=52; detected_label="Sprawdzanie zawartości wydania"
+    elif [[ "$snapshot" == *"BlackHost stage: cli update checksum"* ]]; then
+      detected_percent=32; detected_label="Weryfikacja sumy SHA-256"
+    elif [[ "$snapshot" == *"BlackHost stage: cli update download"* ]]; then
+      detected_percent=10; detected_label="Pobieranie wydania BlackHost CLI"
+    fi
+  elif [[ "$action" == "phpmyadmin-install" ]]; then
+    if [[ "$snapshot" == *"BlackHost stage: phpmyadmin complete"* ]]; then
+      detected_percent=98; detected_label="phpMyAdmin jest gotowy"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin verify"* ]]; then
+      detected_percent=94; detected_label="Sprawdzanie instalacji"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin certificate"* ]]; then
+      detected_percent=86; detected_label="Pobieranie certyfikatu SSL"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin configure"* ]]; then
+      detected_percent=72; detected_label="Konfiguracja phpMyAdmin i Nginx"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin database"* ]]; then
+      detected_percent=68; detected_label="Tworzenie administratora MariaDB"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin extract"* ]]; then
+      detected_percent=64; detected_label="Rozpakowywanie phpMyAdmin"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin checksum"* ]]; then
+      detected_percent=56; detected_label="Weryfikacja sumy SHA-256"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin download"* ]]; then
+      detected_percent=42; detected_label="Pobieranie phpMyAdmin"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin packages"* ]]; then
+      detected_percent=16; detected_label="Instalacja Nginx i PHP-FPM"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin repositories"* ]]; then
+      detected_percent=6; detected_label="Aktualizacja listy pakietów"
+    fi
+  elif [[ "$action" == "phpmyadmin-update" ]]; then
+    if [[ "$snapshot" == *"BlackHost stage: phpmyadmin update complete"* ]]; then
+      detected_percent=98; detected_label="phpMyAdmin zaktualizowany"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin update swap"* ]]; then
+      detected_percent=88; detected_label="Aktywowanie nowej wersji"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin update prepare"* ]]; then
+      detected_percent=72; detected_label="Przenoszenie konfiguracji"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin extract"* ]]; then
+      detected_percent=58; detected_label="Rozpakowywanie phpMyAdmin"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin checksum"* ]]; then
+      detected_percent=38; detected_label="Weryfikacja sumy SHA-256"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin download"* ]]; then
+      detected_percent=12; detected_label="Pobieranie phpMyAdmin"
+    fi
+  elif [[ "$action" == "phpmyadmin-uninstall" ]]; then
+    if [[ "$snapshot" == *"BlackHost stage: phpmyadmin uninstall complete"* ]]; then
+      detected_percent=98; detected_label="phpMyAdmin usunięty"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin uninstall database"* ]]; then
+      detected_percent=92; detected_label="Usuwanie konta bazy"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin uninstall certificate"* ]]; then
+      detected_percent=86; detected_label="Usuwanie certyfikatu SSL"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin uninstall files"* ]]; then
+      detected_percent=58; detected_label="Usuwanie plików phpMyAdmin"
+    elif [[ "$snapshot" == *"BlackHost stage: phpmyadmin uninstall nginx"* ]]; then
+      detected_percent=24; detected_label="Usuwanie konfiguracji Nginx"
+    fi
+  elif [[ "$action" == "pterodactyl-panel-install" ]]; then
     if [[ "$snapshot" == *"Configuring Let's Encrypt"* ]]; then
       detected_percent=99; detected_label="Konfiguracja certyfikatu SSL"
     elif [[ "$snapshot" == *"Configuring nginx"* ]]; then

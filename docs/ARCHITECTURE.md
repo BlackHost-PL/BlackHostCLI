@@ -63,6 +63,38 @@ Panelu Pterodactyl w systemie z APT. Użytkownik może wybrać wydanie najnowsze
 albo oznaczone przez Blueprint jako wspierane; oba archiwa mają niezależne sumy
 SHA-256. Użytkownik serwera WWW jest wykrywany z własności katalogu `storage`.
 
+## phpMyAdmin
+
+`modules/phpmyadmin.sh` instaluje przypięte oficjalne archiwum phpMyAdmin po
+weryfikacji SHA-256 i struktury plików. Moduł obsługuje Debian/Ubuntu, wykrywa
+istniejącą wersję PHP albo instaluje PHP-FPM wraz z wymaganymi rozszerzeniami,
+a następnie tworzy osobny host Nginx dla podanej domeny. Certyfikat Let's Encrypt
+jest opcjonalnie pobierany przez wtyczkę Nginx Certbota.
+
+Konfiguracja używa uwierzytelniania `cookie`, hosta bazy `127.0.0.1`, losowego
+`blowfish_secret` i wyłączonego `AllowArbitraryServer`. Katalog `setup` jest
+usuwany, bezpośredni dostęp do wewnętrznych katalogów blokowany przez Nginx,
+a plik `config.inc.php` ma uprawnienia `0640`. Aktualizacja zachowuje konfigurację
+i podmienia katalog aplikacji z rollbackiem. Opcjonalny administrator MariaDB
+otrzymuje losowe hasło, które nie jest zapisywane w stanie ani logu BlackHost.
+Odinstalowanie nie usuwa MariaDB, baz danych, PHP ani Nginx; usunięcie utworzonego
+konta bazy i certyfikatu wymaga osobnych potwierdzeń.
+
+## Samoaktualizacja CLI
+
+`modules/self_update.sh` pobiera wyłącznie najnowsze opublikowane, stabilne
+wydanie GitHub oznaczone tagiem `vX.Y.Z`. Dla każdego wydania workflow publikuje
+wersjonowane archiwum `blackhost-vX.Y.Z.tar.gz` i odpowiadający mu plik
+`.sha256`.
+
+Przed instalacją sprawdzana jest suma SHA-256, prefiks i typy wpisów archiwum,
+obecność wymaganych plików, składnia wszystkich skryptów oraz numer wersji
+zgłaszany przez pobrany kod. Nowa wersja jest instalowana do tymczasowego
+katalogu obok `/opt/blackhost`. Obecny katalog zostaje zachowany do czasu
+podmiany dowiązania i końcowej kontroli wersji; nieudana aktywacja przywraca go
+automatycznie. Stan w `/var/lib/blackhost` i logi w `/var/log/blackhost` nie są
+częścią podmienianego katalogu.
+
 ## Usuwanie
 
 Usuwanie delegowane jest bezpośrednio do funkcji `perform_uninstall` z
