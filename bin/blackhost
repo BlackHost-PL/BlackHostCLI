@@ -15,6 +15,8 @@ source "${BLACKHOST_ROOT}/modules/pterodactyl.sh"
 source "${BLACKHOST_ROOT}/modules/blueprint.sh"
 source "${BLACKHOST_ROOT}/modules/nginx.sh"
 source "${BLACKHOST_ROOT}/modules/speedtest.sh"
+source "${BLACKHOST_ROOT}/modules/self_update.sh"
+source "${BLACKHOST_ROOT}/modules/phpmyadmin.sh"
 source "${BLACKHOST_ROOT}/modules/installer.sh"
 
 show_status() {
@@ -23,6 +25,7 @@ show_status() {
   pterodactyl_status
   blueprint_status
   nginx_status
+  phpmyadmin_status
 }
 
 show_system_summary() {
@@ -53,6 +56,7 @@ main_menu() {
     ui_option 1 "Instalator" "Pterodactyl, Nginx i kolejne programy"
     ui_option 2 "Stan usług" "Szybka diagnostyka"
     ui_option 3 "Speedtest" "Oficjalny klient Ookla"
+    ui_option 4 "Aktualizacja CLI" "Sprawdź i zainstaluj najnowsze wydanie"
     ui_option 0 "Wyjdź" "Powrót do terminala"
     ui_menu_prompt choice
 
@@ -60,6 +64,11 @@ main_menu() {
       1) installer_menu ;;
       2) show_status; ui_pause escape ;;
       3) speedtest_run; ui_pause ;;
+      4)
+        blackhost_self_update || true
+        ui_pause
+        [[ "${BLACKHOST_UPDATE_APPLIED:-false}" == true ]] && return 0
+        ;;
       0) return 0 ;;
       *) ui_error "Nieprawidłowa opcja."; sleep 1 ;;
     esac
@@ -81,12 +90,16 @@ case "${1:-menu}" in
   status) show_status; printf '\n' ;;
   pterodactyl) run_interactive pterodactyl_menu ;;
   nginx) run_interactive nginx_menu ;;
+  phpmyadmin) run_interactive phpmyadmin_menu ;;
   speedtest) speedtest_run; printf '\n' ;;
+  update) blackhost_self_update "${2:-}"; printf '\n' ;;
   version|--version|-v) printf 'blackhost %s\n' "$BLACKHOST_VERSION" ;;
   help|--help|-h)
     for help_line in \
-      "Użycie: blackhost [menu|installer|status|pterodactyl|nginx|speedtest|version]" \
+      "Użycie: blackhost [menu|installer|status|pterodactyl|nginx|phpmyadmin|speedtest|update|version]" \
       "Bez argumentu uruchamiane jest interaktywne menu." \
+      "Użyj blackhost update --check, aby tylko sprawdzić dostępność aktualizacji." \
+      "Użyj sudo blackhost update --yes, aby zainstalować aktualizację bez pytania." \
       "Ustaw BLACKHOST_ASCII=1, aby wyłączyć znaki Unicode." \
       "Ustaw BLACKHOST_FORCE_CLEAR=1, aby wymusić odrysowywanie ekranu." \
       "Ustaw BLACKHOST_NO_ALT_SCREEN=1, aby wyłączyć osobny ekran terminala."

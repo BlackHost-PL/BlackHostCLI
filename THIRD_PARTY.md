@@ -41,6 +41,15 @@ Obowiązują warunki licencyjne dystrybuowane z wybranym wydaniem Blueprinta.
 Speedtest CLI podlega warunkom i polityce prywatności firmy Ookla. BlackHost nie
 nadaje licencji na ten pakiet.
 
+## phpMyAdmin
+
+- projekt: <https://www.phpmyadmin.net/>;
+- licencja upstreamu: GNU General Public License v2.0 lub nowsza;
+- sposób użycia: przypięte oficjalne archiwum jest pobierane, weryfikowane sumą
+  SHA-256 i instalowane jako osobna aplikacja WWW.
+
+phpMyAdmin zachowuje własne prawa autorskie, znak towarowy i warunki licencyjne.
+
 ## Pakiety systemowe
 
 Nginx, PHP, MariaDB, Redis, Docker, Certbot, Composer i inne pakiety systemowe są
@@ -48,5 +57,4 @@ instalowane z repozytoriów systemu albo ich oficjalnych źródeł. Każdy z nic
 podlega własnej licencji.
 
 BlackHost CLI nie jest powiązany, sponsorowany ani zatwierdzony przez autorów
-Pterodactyla, pterodactyl-installer, Blueprinta, Nginx ani Ookli.
-
+Pterodactyla, pterodactyl-installer, Blueprinta, phpMyAdmin, Nginx ani Ookli.

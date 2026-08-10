@@ -9,7 +9,7 @@ export BLACKHOST_ROOT="$ROOT"
 export NO_COLOR=1
 
 version_output=$("$ROOT/bin/blackhost" version)
-[[ "$version_output" == "blackhost 1.0.0" ]]
+[[ "$version_output" == "blackhost 1.1.0" ]]
 
 temp_dir=$(mktemp -d /tmp/blackhost-cli-test.XXXXXX)
 cleanup() {
@@ -20,13 +20,19 @@ cleanup() {
 trap cleanup EXIT
 ln -s "$ROOT/bin/blackhost" "$temp_dir/blackhost"
 symlink_version_output=$("$temp_dir/blackhost" version)
-[[ "$symlink_version_output" == "blackhost 1.0.0" ]]
+[[ "$symlink_version_output" == "blackhost 1.1.0" ]]
 
 help_output=$("$ROOT/bin/blackhost" help)
 [[ "$help_output" == *"Użycie: blackhost"* ]]
 [[ "$help_output" == *"installer"* ]]
 [[ "$help_output" == *"nginx"* ]]
+[[ "$help_output" == *"phpmyadmin"* ]]
 [[ "$help_output" == *"speedtest"* ]]
+[[ "$help_output" == *"update"* ]]
+[[ "$help_output" == *"update --check"* ]]
+main_menu_output=$(printf '0\n' | BLACKHOST_NO_ALT_SCREEN=1 "$ROOT/bin/blackhost")
+[[ "$main_menu_output" == *"Aktualizacja CLI"* ]]
+grep -qF 'BLACKHOST_UPDATE_APPLIED:-false' "$ROOT/bin/blackhost"
 grep -qF '"$SOURCE_ROOT"/modules/*.sh' "$ROOT/install.sh"
 grep -qF 'GNU General Public License' "$ROOT/LICENSE"
 grep -qF 'Copyright (C) 2026 BlackHost.pl' "$ROOT/lib/core.sh"
@@ -36,6 +42,7 @@ grep -qF '"$SOURCE_ROOT/THIRD_PARTY.md"' "$ROOT/install.sh"
 
 installer_output=$(printf '1\n0\n0\n' | BLACKHOST_NO_ALT_SCREEN=1 "$ROOT/bin/blackhost" installer)
 [[ "$installer_output" == *"PROGRAMY"* ]]
+[[ "$installer_output" == *"phpMyAdmin"* ]]
 [[ "$installer_output" == *"PTERODACTYL"* ]]
 [[ "$installer_output" != *"PTERODACTYL · v1.3.0"* ]]
 [[ "$installer_output" == *"Zainstaluj Panel"* ]]
@@ -54,13 +61,102 @@ nginx_menu_output=$(printf '2\n0\n0\n' | BLACKHOST_NO_ALT_SCREEN=1 "$ROOT/bin/bl
 [[ "$nginx_menu_output" == *"Zainstaluj Nginx"* ]]
 [[ "$nginx_menu_output" == *"Odinstaluj Nginx"* ]]
 
+phpmyadmin_menu_output=$(printf '3\n0\n0\n' | BLACKHOST_NO_ALT_SCREEN=1 "$ROOT/bin/blackhost" installer)
+[[ "$phpmyadmin_menu_output" == *"PHPMYADMIN"* ]]
+[[ "$phpmyadmin_menu_output" == *"Zainstaluj phpMyAdmin"* ]]
+[[ "$phpmyadmin_menu_output" == *"Aktualizuj phpMyAdmin"* ]]
+[[ "$phpmyadmin_menu_output" == *"Odinstaluj phpMyAdmin"* ]]
+
 source "$ROOT/lib/ui.sh"
 source "$ROOT/lib/core.sh"
 source "$ROOT/modules/speedtest.sh"
+source "$ROOT/modules/self_update.sh"
 source "$ROOT/modules/pterodactyl.sh"
 source "$ROOT/modules/blueprint.sh"
 source "$ROOT/modules/nginx.sh"
+source "$ROOT/modules/phpmyadmin.sh"
 source "$ROOT/modules/installer.sh"
+
+[[ "$PHPMYADMIN_VERSION" == '5.2.3' ]]
+[[ "$PHPMYADMIN_SHA256" == '12ba1c425fa4071abbd4e7668c9ebdeac0b0755a467a6d6d5026122bb47c102b' ]]
+phpmyadmin_version_is_newer '5.2.4' '5.2.3'
+! phpmyadmin_version_is_newer '5.2.3' '5.2.3'
+! phpmyadmin_version_is_newer '5.2.2' '5.2.3'
+
+original_phpmyadmin_root=$PHPMYADMIN_ROOT
+PHPMYADMIN_ROOT="$temp_dir/phpmyadmin-fixture"
+mkdir -p "$PHPMYADMIN_ROOT/libraries/classes"
+touch "$PHPMYADMIN_ROOT/index.php" "$PHPMYADMIN_ROOT/config.inc.php"
+printf "%s\n" "public const VERSION = '5.2.3' . VERSION_SUFFIX;" \
+  >"$PHPMYADMIN_ROOT/libraries/classes/Version.php"
+phpmyadmin_installed
+[[ "$(phpmyadmin_version)" == '5.2.3' ]]
+PHPMYADMIN_ROOT=$original_phpmyadmin_root
+
+phpmyadmin_config=$(phpmyadmin_render_config 'db.example.com' \
+  '0123456789abcdef0123456789abcdef0123456789abcdef' true)
+[[ "$phpmyadmin_config" == *"auth_type'] = 'cookie'"* ]]
+[[ "$phpmyadmin_config" == *"host'] = '127.0.0.1'"* ]]
+[[ "$phpmyadmin_config" == *"AllowArbitraryServer'] = false"* ]]
+[[ "$phpmyadmin_config" == *"PmaAbsoluteUri'] = 'https://db.example.com/'"* ]]
+[[ "$phpmyadmin_config" == *"ForceSSL'] = true"* ]]
+
+phpmyadmin_nginx=$(phpmyadmin_render_nginx_site 'db.example.com' '/run/php/php8.3-fpm.sock')
+[[ "$phpmyadmin_nginx" == *'server_name db.example.com;'* ]]
+[[ "$phpmyadmin_nginx" == *'fastcgi_pass unix:/run/php/php8.3-fpm.sock;'* ]]
+[[ "$phpmyadmin_nginx" == *'location ~ ^/(setup|libraries|templates|vendor)/'* ]]
+[[ "$phpmyadmin_nginx" == *'limit_req zone=blackhost_phpmyadmin_login'* ]]
+[[ "$(phpmyadmin_render_nginx_rate)" == *'rate=30r/m'* ]]
+grep -qF 'USUN PHPMYADMIN' "$ROOT/modules/phpmyadmin.sh"
+grep -qF 'certbot --nginx --redirect --non-interactive' "$ROOT/modules/phpmyadmin.sh"
+grep -qF "GRANT ALL PRIVILEGES ON *.* TO" "$ROOT/modules/phpmyadmin.sh"
+! sed -n '/write_state phpmyadmin/,/ui_success/p' "$ROOT/modules/phpmyadmin.sh" \
+  | grep -qF 'PMA_DB_PASSWORD'
+
+[[ "$(blackhost_release_version_from_tag v1.2.3)" == "1.2.3" ]]
+[[ "$(blackhost_release_version_from_tag v10.20.30)" == "10.20.30" ]]
+! blackhost_release_version_from_tag '1.2.3'
+! blackhost_release_version_from_tag 'v1.2'
+! blackhost_release_version_from_tag 'v1.2.3-beta.1'
+! blackhost_release_version_from_tag 'v01.2.3'
+! blackhost_release_version_from_tag 'v1234567890.2.3'
+blackhost_version_is_newer '1.1.0' '1.0.9'
+blackhost_version_is_newer '2.0.0' '1.99.99'
+! blackhost_version_is_newer '1.0.0' '1.0.0'
+! blackhost_version_is_newer '1.0.9' '1.1.0'
+release_json='{"id":123,"tag_name":"v1.2.3","draft":false}'
+[[ "$(printf '%s' "$release_json" | blackhost_release_tag_from_json)" == "v1.2.3" ]]
+
+checksum_fixture="$temp_dir/release.sha256"
+printf '%s  %s\n' \
+  'ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789' \
+  'blackhost-v1.2.3.tar.gz' >"$checksum_fixture"
+[[ "$(blackhost_update_checksum_from_file "$checksum_fixture" 'blackhost-v1.2.3.tar.gz')" \
+  == 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789' ]]
+! blackhost_update_checksum_from_file "$checksum_fixture" 'inny-plik.tar.gz'
+
+curl() {
+  printf '%s\n' '{"id":123,"tag_name":"v1.2.3","draft":false}'
+}
+export -f curl
+update_check_output=$(BLACKHOST_UPDATE_API_URL='https://example.invalid/latest' \
+  "$ROOT/bin/blackhost" update --check)
+unset -f curl
+[[ "$update_check_output" == *"Zainstalowana"*"v1.1.0"* ]]
+[[ "$update_check_output" == *"Najnowsza"*"v1.2.3"* ]]
+[[ "$update_check_output" == *"Dostępna jest aktualizacja"* ]]
+unknown_update_output=$("$ROOT/bin/blackhost" update --unknown 2>&1 || true)
+[[ "$unknown_update_output" == *"Nieznana opcja aktualizacji"* ]]
+
+release_source="$temp_dir/BlackHostCLI-v1.1.0"
+mkdir -p "$release_source"
+cp -R "$ROOT/bin" "$ROOT/lib" "$ROOT/modules" "$release_source/"
+cp "$ROOT/install.sh" "$release_source/install.sh"
+release_archive="$temp_dir/blackhost-v1.1.0.tar.gz"
+tar -czf "$release_archive" -C "$temp_dir" 'BlackHostCLI-v1.1.0'
+blackhost_update_validate_archive "$release_archive" '1.1.0' "$temp_dir/validated-release"
+[[ "$(BLACKHOST_ROOT="$temp_dir/validated-release" \
+  "$temp_dir/validated-release/bin/blackhost" version)" == 'blackhost 1.1.0' ]]
 
 panel_info_fixture=$'+-----------------+--------+\n| Panel Version   | 1.12.3 |\n| Latest Version  | 1.12.4 |\n+-----------------+--------+'
 [[ "$(pterodactyl_panel_info_value "Panel Version" "$panel_info_fixture")" == "1.12.3" ]]
@@ -243,6 +339,22 @@ stage=$(progress_stage "pterodactyl-wings-update" "$progress_log" 3 "Start")
 
 grep -qF 'progress_title="POSTĘP AKTUALIZACJI"' "$ROOT/lib/core.sh"
 grep -qF 'completion_label="Aktualizacja zakończona"' "$ROOT/lib/core.sh"
+
+printf '%s\n' 'BlackHost stage: cli update checksum' >"$progress_log"
+stage=$(progress_stage "blackhost-cli-update" "$progress_log" 3 "Start")
+[[ "$stage" == "32|Weryfikacja sumy SHA-256" ]]
+
+printf '%s\n' 'BlackHost stage: phpmyadmin certificate' >"$progress_log"
+stage=$(progress_stage "phpmyadmin-install" "$progress_log" 3 "Start")
+[[ "$stage" == "86|Pobieranie certyfikatu SSL" ]]
+
+printf '%s\n' 'BlackHost stage: phpmyadmin update swap' >"$progress_log"
+stage=$(progress_stage "phpmyadmin-update" "$progress_log" 3 "Start")
+[[ "$stage" == "88|Aktywowanie nowej wersji" ]]
+
+printf '%s\n' 'BlackHost stage: phpmyadmin uninstall files' >"$progress_log"
+stage=$(progress_stage "phpmyadmin-uninstall" "$progress_log" 3 "Start")
+[[ "$stage" == "58|Usuwanie plików phpMyAdmin" ]]
 
 printf '%s\n' 'Rebuilding panel assets..' >"$progress_log"
 stage=$(progress_stage "blueprint-install" "$progress_log" 3 "Start")
