@@ -12,8 +12,18 @@ BLUEPRINT_URL="https://github.com/BlueprintFramework/framework/releases/download
 BLUEPRINT_PANEL_DIR="/var/www/pterodactyl"
 
 blueprint_use_release() {
-  BLUEPRINT_VERSION=$1
-  BLUEPRINT_SHA256=$2
+  local version=$1 sha256
+  if (($# >= 2)); then
+    sha256=$2
+  elif [[ "$version" == "$BLUEPRINT_LATEST_VERSION" ]]; then
+    sha256="$BLUEPRINT_LATEST_SHA256"
+  elif [[ "$version" == "$BLUEPRINT_STABLE_VERSION" ]]; then
+    sha256="$BLUEPRINT_STABLE_SHA256"
+  else
+    return 1
+  fi
+  BLUEPRINT_VERSION=$version
+  BLUEPRINT_SHA256=$sha256
   BLUEPRINT_URL="https://github.com/BlueprintFramework/framework/releases/download/${BLUEPRINT_VERSION}/release.zip"
 }
 

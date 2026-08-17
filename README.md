@@ -19,6 +19,7 @@ popularnych usług hostingowych.
 - stan wykrytych usług;
 - test łącza przez oficjalny pakiet Speedtest CLI firmy Ookla;
 - bezpieczna samoaktualizacja CLI z kontrolą SHA-256 i automatycznym rollbackiem;
+- automatyczny provisioning z Dashboardu z raportowaniem postępu operacji;
 - czytelny postęp operacji i pełne logi w `/var/log/blackhost`;
 - obsługa SSH, konsoli Linux/VNC, Unicode oraz trybu ASCII.
 
@@ -28,6 +29,8 @@ popularnych usług hostingowych.
 - konto `root` albo `sudo`;
 - aktywne połączenie z Internetem;
 - system i architektura wspierane przez wybrany instalator.
+
+Automatyczny provisioning wymaga dodatkowo parsera JSON: `jq` albo `python3`.
 
 Integracja Pterodactyla korzysta obecnie z przypiętego wydania
 `pterodactyl-installer v1.3.0` oraz weryfikuje pobrane archiwum sumą SHA-256.
@@ -85,9 +88,26 @@ blackhost phpmyadmin   operacje phpMyAdmin
 blackhost status       stan wykrytych usług
 blackhost speedtest    test łącza przez Speedtest CLI
 blackhost update       aktualizacja BlackHost CLI
+blackhost probe        maszynowy stan usług w formacie JSON
+blackhost provision    automatyczna operacja zlecona przez Dashboard
 blackhost version      wersja BlackHost CLI
 blackhost help         pomoc
 ```
+
+### Provisioning z Dashboardu
+
+Provisioning jest przeznaczony do nieinteraktywnego uruchamiania przez
+Dashboard BlackHost. Token należy przekazywać przez plik z ograniczonymi
+uprawnieniami, aby nie pojawił się w historii powłoki ani na liście procesów:
+
+```bash
+sudo blackhost provision --token-file /run/blackhost/claim-token
+```
+
+Zwykły plik tokenu jest usuwany po odczytaniu. Opcja `--token` jest obsługiwana
+awaryjnie, ale nie jest zalecana. Produkcyjny adres API musi używać HTTPS;
+`--api-url` z HTTP jest akceptowane wyłącznie dla `localhost` i `127.0.0.1`
+w środowisku deweloperskim.
 
 ## Pliki programu
 
@@ -123,8 +143,14 @@ zmienne środowiskowe:
   oraz uruchamia test składni przed podmianą instalacji;
 - phpMyAdmin używa uwierzytelniania `cookie`, łączy się wyłącznie z lokalną bazą,
   ma wyłączony wybór dowolnego hosta i ograniczanie żądań w Nginx;
+- istniejące konto administratora MariaDB nie jest resetowane bez jawnej zgody
+  w konfiguracji zadania provisioningowego;
 - odinstalowanie Panelu i Wings korzysta z modułu odinstalowania upstreamu;
-- destrukcyjne operacje wymagają wyraźnego potwierdzenia.
+- destrukcyjne operacje interaktywne wymagają wyraźnego potwierdzenia;
+- provisioning weryfikuje typ zadania, wszystkie wartości konfiguracyjne i token
+  wykonawczy przed uruchomieniem uprzywilejowanej operacji;
+- usunięcie baz danych, kont DB, certyfikatów i konfiguracji Nginx jest w
+  provisioningu domyślnie wyłączone i wymaga jawnej flagi zadania.
 
 Znalezioną lukę zgłoś zgodnie z [SECURITY.md](SECURITY.md), a nie w publicznym
 zgłoszeniu. Logi dołączane do zgłoszeń należy wcześniej pozbawić domen, adresów

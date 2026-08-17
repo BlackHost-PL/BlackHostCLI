@@ -61,8 +61,9 @@ nginx_preflight() {
 }
 
 nginx_install_impl() {
+  local pkg_mgr=${NGINX_PACKAGE_MANAGER:-$(nginx_package_manager 2>/dev/null || printf 'apt')}
   printf 'BlackHost stage: nginx repositories\n'
-  case "$NGINX_PACKAGE_MANAGER" in
+  case "$pkg_mgr" in
     apt)
       DEBIAN_FRONTEND=noninteractive apt-get update || return 1
       printf 'BlackHost stage: nginx packages\n'
@@ -127,16 +128,18 @@ nginx_apt_installed_packages() {
 
 nginx_uninstall_impl() {
   local -a nginx_packages=()
+  local pkg_mgr=${NGINX_PACKAGE_MANAGER:-$(nginx_package_manager 2>/dev/null || printf 'apt')}
+  local remove_config=${NGINX_REMOVE_CONFIG:-false}
 
   printf 'BlackHost stage: nginx stop\n'
   systemctl disable --now nginx || true
 
   printf 'BlackHost stage: nginx remove package\n'
-  case "$NGINX_PACKAGE_MANAGER" in
+  case "$pkg_mgr" in
     apt)
       mapfile -t nginx_packages < <(nginx_apt_installed_packages)
       if ((${#nginx_packages[@]} > 0)); then
-        if [[ "$NGINX_REMOVE_CONFIG" == true ]]; then
+        if [[ "$remove_config" == true ]]; then
           DEBIAN_FRONTEND=noninteractive apt-get purge -y "${nginx_packages[@]}" || return 1
         else
           DEBIAN_FRONTEND=noninteractive apt-get remove -y "${nginx_packages[@]}" || return 1
@@ -150,7 +153,7 @@ nginx_uninstall_impl() {
 
   hash -r
   printf 'BlackHost stage: nginx configuration cleanup\n'
-  if [[ "$NGINX_REMOVE_CONFIG" == true ]]; then
+  if [[ "$remove_config" == true ]]; then
     rm -rf -- /etc/nginx || return 1
   fi
 

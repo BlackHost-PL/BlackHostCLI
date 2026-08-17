@@ -374,15 +374,21 @@ phpmyadmin_install_steps() {
     if "$PMA_DB_CLIENT" --protocol=socket -N -B -u root \
       -e "SELECT 1 FROM mysql.user WHERE User='${PMA_DB_USER}' AND Host='127.0.0.1' LIMIT 1;" \
       | grep -q '^1$'; then
-      printf 'Użytkownik bazy %s@127.0.0.1 już istnieje.\n' "$PMA_DB_USER" >&2
-      return 1
+      if [[ "${PMA_RESET_EXISTING_DB_USER:-false}" != true ]]; then
+        printf 'Użytkownik bazy %s@127.0.0.1 już istnieje; jego hasło nie zostało zmienione.\n' \
+          "$PMA_DB_USER" >&2
+        return 1
+      fi
+      "$PMA_DB_CLIENT" --protocol=socket -u root -e \
+        "ALTER USER '${PMA_DB_USER}'@'127.0.0.1' IDENTIFIED BY '${PMA_DB_PASSWORD}'; GRANT ALL PRIVILEGES ON *.* TO '${PMA_DB_USER}'@'127.0.0.1' WITH GRANT OPTION; FLUSH PRIVILEGES;" || return 1
+    else
+      "$PMA_DB_CLIENT" --protocol=socket -u root -e \
+        "CREATE USER '${PMA_DB_USER}'@'127.0.0.1' IDENTIFIED BY '${PMA_DB_PASSWORD}';" || return 1
+      PMA_DB_USER_CREATED=true
+      "$PMA_DB_CLIENT" --protocol=socket -u root -e \
+        "GRANT ALL PRIVILEGES ON *.* TO '${PMA_DB_USER}'@'127.0.0.1' WITH GRANT OPTION; FLUSH PRIVILEGES;" \
+        || return 1
     fi
-    "$PMA_DB_CLIENT" --protocol=socket -u root -e \
-      "CREATE USER '${PMA_DB_USER}'@'127.0.0.1' IDENTIFIED BY '${PMA_DB_PASSWORD}';" || return 1
-    PMA_DB_USER_CREATED=true
-    "$PMA_DB_CLIENT" --protocol=socket -u root -e \
-      "GRANT ALL PRIVILEGES ON *.* TO '${PMA_DB_USER}'@'127.0.0.1' WITH GRANT OPTION; FLUSH PRIVILEGES;" \
-      || return 1
   fi
 
   printf 'BlackHost stage: phpmyadmin configure\n'
