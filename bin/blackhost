@@ -18,6 +18,7 @@ source "${BLACKHOST_ROOT}/modules/speedtest.sh"
 source "${BLACKHOST_ROOT}/modules/self_update.sh"
 source "${BLACKHOST_ROOT}/modules/phpmyadmin.sh"
 source "${BLACKHOST_ROOT}/modules/installer.sh"
+source "${BLACKHOST_ROOT}/modules/provision.sh"
 
 show_status() {
   ui_header "STATUS USŁUG"
@@ -84,20 +85,93 @@ run_interactive() {
   trap - EXIT INT TERM HUP
 }
 
+show_probe_json() {
+  local ptero_panel_inst="false" ptero_panel_ver="" ptero_panel_state="inactive"
+  local ptero_wings_inst="false" ptero_wings_ver="" ptero_wings_state="inactive"
+  local bp_inst="false" bp_ver="" bp_state="inactive"
+  local nginx_inst="false" nginx_ver="" nginx_state="inactive"
+  local pma_inst="false" pma_ver="" pma_state="inactive"
+
+  if pterodactyl_panel_installed; then
+    ptero_panel_inst="true"
+    ptero_panel_ver=$(pterodactyl_panel_version 2>/dev/null || printf '')
+    if pterodactyl_panel_healthy; then
+      ptero_panel_state="active"
+    else
+      ptero_panel_state="warning"
+    fi
+  fi
+
+  if pterodactyl_wings_installed; then
+    ptero_wings_inst="true"
+    ptero_wings_ver=$(pterodactyl_wings_version 2>/dev/null || printf '')
+    if systemctl is-active --quiet wings 2>/dev/null; then
+      ptero_wings_state="active"
+    else
+      ptero_wings_state="warning"
+    fi
+  fi
+
+  if blueprint_installed; then
+    bp_inst="true"
+    bp_ver=$(blueprint_version 2>/dev/null || printf '')
+    bp_state="active"
+  fi
+
+  if nginx_installed; then
+    nginx_inst="true"
+    nginx_ver=$(nginx_version 2>/dev/null || printf '')
+    if systemctl is-active --quiet nginx 2>/dev/null; then
+      nginx_state="active"
+    else
+      nginx_state="warning"
+    fi
+  fi
+
+  if phpmyadmin_installed; then
+    pma_inst="true"
+    pma_ver="${PHPMYADMIN_VERSION:-}"
+    if systemctl is-active --quiet nginx 2>/dev/null; then
+      pma_state="active"
+    else
+      pma_state="warning"
+    fi
+  fi
+
+  ptero_panel_ver=$(json_escape "$ptero_panel_ver")
+  ptero_wings_ver=$(json_escape "$ptero_wings_ver")
+  bp_ver=$(json_escape "$bp_ver")
+  nginx_ver=$(json_escape "$nginx_ver")
+  pma_ver=$(json_escape "$pma_ver")
+
+  cat <<EOF
+{
+  "pterodactyl-panel": { "installed": ${ptero_panel_inst}, "version": "${ptero_panel_ver}", "status": "${ptero_panel_state}" },
+  "pterodactyl-wings": { "installed": ${ptero_wings_inst}, "version": "${ptero_wings_ver}", "status": "${ptero_wings_state}" },
+  "blueprint": { "installed": ${bp_inst}, "version": "${bp_ver}", "status": "${bp_state}" },
+  "nginx": { "installed": ${nginx_inst}, "version": "${nginx_ver}", "status": "${nginx_state}" },
+  "phpmyadmin": { "installed": ${pma_inst}, "version": "${pma_ver}", "status": "${pma_state}" }
+}
+EOF
+}
+
 case "${1:-menu}" in
   menu) run_interactive main_menu ;;
   installer) run_interactive installer_menu ;;
   status) show_status; printf '\n' ;;
+  probe|app-status) show_probe_json ;;
   pterodactyl) run_interactive pterodactyl_menu ;;
   nginx) run_interactive nginx_menu ;;
   phpmyadmin) run_interactive phpmyadmin_menu ;;
   speedtest) speedtest_run; printf '\n' ;;
   update) blackhost_self_update "${2:-}"; printf '\n' ;;
+  provision) shift; blackhost_provision_run "$@" ;;
   version|--version|-v) printf 'blackhost %s\n' "$BLACKHOST_VERSION" ;;
   help|--help|-h)
     for help_line in \
-      "Użycie: blackhost [menu|installer|status|pterodactyl|nginx|phpmyadmin|speedtest|update|version]" \
+      "Użycie: blackhost [menu|installer|status|pterodactyl|nginx|phpmyadmin|speedtest|update|provision|version]" \
       "Bez argumentu uruchamiane jest interaktywne menu." \
+      "Użyj blackhost provision --token-file <ścieżka>, aby uruchomić autoinstalację z Dashboardu." \
       "Użyj blackhost update --check, aby tylko sprawdzić dostępność aktualizacji." \
       "Użyj sudo blackhost update --yes, aby zainstalować aktualizację bez pytania." \
       "Ustaw BLACKHOST_ASCII=1, aby wyłączyć znaki Unicode." \

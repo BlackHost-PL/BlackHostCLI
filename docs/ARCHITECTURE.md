@@ -2,8 +2,10 @@
 
 ## Założenie
 
-`blackhost` jest małym, niezależnym narzędziem administracyjnym dla świeżych
-serwerów Linux. Nie zależy od Dashboardu ani od kodu panelu Pterodactyl.
+`blackhost` jest małym narzędziem administracyjnym dla świeżych serwerów Linux.
+Menu i ręczne operacje działają niezależnie od Dashboardu oraz kodu panelu
+Pterodactyl. Opcjonalny moduł provisioningowy integruje CLI z Dashboardem przez
+wersjonowane API HTTPS.
 
 ## Warstwy
 
@@ -11,6 +13,7 @@ serwerów Linux. Nie zależy od Dashboardu ani od kodu panelu Pterodactyl.
 - `lib/ui.sh` — wspólne kolory, pytania i potwierdzenia;
 - `lib/core.sh` — root/preflight, blokada operacji, logi, stan i walidacja;
 - `modules/installer.sh` — katalog programów i wejście do ich akcji;
+- `modules/provision.sh` — claim zadania, walidacja konfiguracji i raportowanie;
 - `modules/*.sh` — niezależne adaptery usług;
 - `/var/lib/blackhost` — niewrażliwy stan wykonanych operacji;
 - `/var/log/blackhost` — logi instalacji bez wartości wpisywanych w ukrytych polach;
@@ -25,6 +28,19 @@ interfejs przechodzi w tryb liniowy bez wywoływania `clear`.
 Każdy moduł powinien udostępniać co najmniej funkcje `status`, `install`,
 `uninstall` i własne menu. Instalacja musi być idempotentna na poziomie
 preflight: wykryta istniejąca instalacja jest zatrzymywana zamiast nadpisywana.
+
+## Provisioning
+
+Polecenie `blackhost provision` odbiera przez plik token claim, pobiera zadanie
+z Dashboardu i uruchamia istniejące funkcje modułów bez interaktywnego menu.
+Odpowiedź API jest parsowana wyłącznie przez `jq` albo `python3`; wartości domen,
+adresów, identyfikatorów baz, sekretów, flag i nazw aplikacji są sprawdzane przed
+przekazaniem ich do procesu działającego jako `root`.
+
+Token wykonawczy służy wyłącznie do raportowania postępu i wyniku zadania. HTTP
+jest dozwolone tylko dla lokalnego środowiska testowego. Opcjonalne usuwanie baz,
+kont, certyfikatów i konfiguracji ma bezpieczną wartość domyślną `false`.
+Przerwanie procesu nadrzędnego zatrzymuje również instalator działający w tle.
 
 ## Zewnętrzne instalatory
 

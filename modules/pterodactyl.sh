@@ -398,6 +398,10 @@ pterodactyl_prompt_panel() {
 }
 
 pterodactyl_install_panel_impl() {
+  export HOME="${HOME:-/root}"
+  export COMPOSER_HOME="${COMPOSER_HOME:-/root/.config/composer}"
+  export COMPOSER_ALLOW_SUPERUSER=1
+  export DEBIAN_FRONTEND="noninteractive"
   export FQDN="$PTERO_FQDN"
   export MYSQL_DB="$PTERO_DB_NAME"
   export MYSQL_USER="$PTERO_DB_USER"

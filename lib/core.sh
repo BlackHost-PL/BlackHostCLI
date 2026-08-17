@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 BlackHost.pl
 
-BLACKHOST_VERSION="1.1.0"
+BLACKHOST_VERSION="1.2.0"
+BLACKHOST_OPERATION_LOCK_HELD=false
 BLACKHOST_STATE_DIR="${BLACKHOST_STATE_DIR:-/var/lib/blackhost}"
 BLACKHOST_LOG_DIR="${BLACKHOST_LOG_DIR:-/var/log/blackhost}"
 
@@ -37,12 +38,21 @@ ensure_runtime_dirs() {
 }
 
 acquire_operation_lock() {
-  require_commands flock
+  [[ "$BLACKHOST_OPERATION_LOCK_HELD" == true ]] && return 0
+  require_commands flock || return 1
+  ensure_runtime_dirs || return 1
   exec 9>"${BLACKHOST_STATE_DIR}/operation.lock"
   flock -n 9 || {
     ui_error "Inna operacja BlackHost CLI jest już uruchomiona."
     return 1
   }
+  BLACKHOST_OPERATION_LOCK_HELD=true
+}
+
+release_operation_lock() {
+  flock -u 9 2>/dev/null || true
+  exec 9>&- 2>/dev/null || true
+  BLACKHOST_OPERATION_LOCK_HELD=false
 }
 
 run_logged() {
@@ -617,6 +627,32 @@ valid_timezone() {
   [[ "$1" =~ ^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)+$ ]] && [[ -f "/usr/share/zoneinfo/$1" ]]
 }
 
+json_escape() {
+  local value=${1:-} output="" char escaped code i
+  for ((i = 0; i < ${#value}; i++)); do
+    char=${value:i:1}
+    case "$char" in
+      '"') output+='\"' ;;
+      '\') output+='\\' ;;
+      $'\b') output+='\b' ;;
+      $'\f') output+='\f' ;;
+      $'\n') output+='\n' ;;
+      $'\r') output+='\r' ;;
+      $'\t') output+='\t' ;;
+      *)
+        printf -v code '%d' "'$char"
+        if ((code < 32)); then
+          printf -v escaped '\\u%04x' "$code"
+          output+=$escaped
+        else
+          output+=$char
+        fi
+        ;;
+    esac
+  done
+  printf '%s' "$output"
+}
+
 random_secret() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 24
@@ -635,4 +671,9 @@ write_state() {
     printf '%s\n' "$@"
   } >"$state_file"
   chmod 600 "$state_file"
+}
+
+remove_state() {
+  local component=$1
+  rm -f -- "${BLACKHOST_STATE_DIR}/${component}.state" 2>/dev/null || true
 }

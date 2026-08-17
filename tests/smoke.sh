@@ -9,7 +9,7 @@ export BLACKHOST_ROOT="$ROOT"
 export NO_COLOR=1
 
 version_output=$("$ROOT/bin/blackhost" version)
-[[ "$version_output" == "blackhost 1.1.0" ]]
+[[ "$version_output" == "blackhost 1.2.0" ]]
 
 temp_dir=$(mktemp -d /tmp/blackhost-cli-test.XXXXXX)
 cleanup() {
@@ -20,7 +20,7 @@ cleanup() {
 trap cleanup EXIT
 ln -s "$ROOT/bin/blackhost" "$temp_dir/blackhost"
 symlink_version_output=$("$temp_dir/blackhost" version)
-[[ "$symlink_version_output" == "blackhost 1.1.0" ]]
+[[ "$symlink_version_output" == "blackhost 1.2.0" ]]
 
 help_output=$("$ROOT/bin/blackhost" help)
 [[ "$help_output" == *"Użycie: blackhost"* ]]
@@ -29,6 +29,7 @@ help_output=$("$ROOT/bin/blackhost" help)
 [[ "$help_output" == *"phpmyadmin"* ]]
 [[ "$help_output" == *"speedtest"* ]]
 [[ "$help_output" == *"update"* ]]
+[[ "$help_output" == *"provision"* ]]
 [[ "$help_output" == *"update --check"* ]]
 main_menu_output=$(printf '0\n' | BLACKHOST_NO_ALT_SCREEN=1 "$ROOT/bin/blackhost")
 [[ "$main_menu_output" == *"Aktualizacja CLI"* ]]
@@ -76,6 +77,14 @@ source "$ROOT/modules/blueprint.sh"
 source "$ROOT/modules/nginx.sh"
 source "$ROOT/modules/phpmyadmin.sh"
 source "$ROOT/modules/installer.sh"
+source "$ROOT/modules/provision.sh"
+
+original_blueprint_version=$BLUEPRINT_VERSION
+! blueprint_use_release 'unsupported-release'
+[[ "$BLUEPRINT_VERSION" == "$original_blueprint_version" ]]
+blueprint_use_release "$BLUEPRINT_LATEST_VERSION"
+[[ "$BLUEPRINT_SHA256" == "$BLUEPRINT_LATEST_SHA256" ]]
+blueprint_use_release "$BLUEPRINT_STABLE_VERSION"
 
 [[ "$PHPMYADMIN_VERSION" == '5.2.3' ]]
 [[ "$PHPMYADMIN_SHA256" == '12ba1c425fa4071abbd4e7668c9ebdeac0b0755a467a6d6d5026122bb47c102b' ]]
@@ -110,8 +119,27 @@ phpmyadmin_nginx=$(phpmyadmin_render_nginx_site 'db.example.com' '/run/php/php8.
 grep -qF 'USUN PHPMYADMIN' "$ROOT/modules/phpmyadmin.sh"
 grep -qF 'certbot --nginx --redirect --non-interactive' "$ROOT/modules/phpmyadmin.sh"
 grep -qF "GRANT ALL PRIVILEGES ON *.* TO" "$ROOT/modules/phpmyadmin.sh"
+grep -qF 'PMA_RESET_EXISTING_DB_USER:-false' "$ROOT/modules/phpmyadmin.sh"
 ! sed -n '/write_state phpmyadmin/,/ui_success/p' "$ROOT/modules/phpmyadmin.sh" \
   | grep -qF 'PMA_DB_PASSWORD'
+(
+  phpmyadmin_install_dependencies() { return 0; }
+  phpmyadmin_prepare_release() { return 0; }
+  fake_db_client() {
+    if [[ "$*" == *'SELECT 1 FROM mysql.user'* ]]; then
+      printf '1\n'
+    else
+      : >"$temp_dir/unexpected-db-user-reset"
+    fi
+  }
+  PMA_DB_CLIENT=fake_db_client
+  PMA_CREATE_DB_ADMIN=true
+  PMA_DB_USER=existing_admin
+  PMA_DB_PASSWORD=Safe-password_123
+  unset PMA_RESET_EXISTING_DB_USER
+  ! phpmyadmin_install_steps >/dev/null 2>&1
+  [[ ! -e "$temp_dir/unexpected-db-user-reset" ]]
+)
 
 [[ "$(blackhost_release_version_from_tag v1.2.3)" == "1.2.3" ]]
 [[ "$(blackhost_release_version_from_tag v10.20.30)" == "10.20.30" ]]
@@ -120,10 +148,10 @@ grep -qF "GRANT ALL PRIVILEGES ON *.* TO" "$ROOT/modules/phpmyadmin.sh"
 ! blackhost_release_version_from_tag 'v1.2.3-beta.1'
 ! blackhost_release_version_from_tag 'v01.2.3'
 ! blackhost_release_version_from_tag 'v1234567890.2.3'
-blackhost_version_is_newer '1.1.0' '1.0.9'
+blackhost_version_is_newer '1.2.0' '1.0.9'
 blackhost_version_is_newer '2.0.0' '1.99.99'
 ! blackhost_version_is_newer '1.0.0' '1.0.0'
-! blackhost_version_is_newer '1.0.9' '1.1.0'
+! blackhost_version_is_newer '1.0.9' '1.2.0'
 release_json='{"id":123,"tag_name":"v1.2.3","draft":false}'
 [[ "$(printf '%s' "$release_json" | blackhost_release_tag_from_json)" == "v1.2.3" ]]
 
@@ -142,21 +170,21 @@ export -f curl
 update_check_output=$(BLACKHOST_UPDATE_API_URL='https://example.invalid/latest' \
   "$ROOT/bin/blackhost" update --check)
 unset -f curl
-[[ "$update_check_output" == *"Zainstalowana"*"v1.1.0"* ]]
+[[ "$update_check_output" == *"Zainstalowana"*"v1.2.0"* ]]
 [[ "$update_check_output" == *"Najnowsza"*"v1.2.3"* ]]
 [[ "$update_check_output" == *"Dostępna jest aktualizacja"* ]]
 unknown_update_output=$("$ROOT/bin/blackhost" update --unknown 2>&1 || true)
 [[ "$unknown_update_output" == *"Nieznana opcja aktualizacji"* ]]
 
-release_source="$temp_dir/BlackHostCLI-v1.1.0"
+release_source="$temp_dir/BlackHostCLI-v1.2.0"
 mkdir -p "$release_source"
 cp -R "$ROOT/bin" "$ROOT/lib" "$ROOT/modules" "$release_source/"
 cp "$ROOT/install.sh" "$release_source/install.sh"
-release_archive="$temp_dir/blackhost-v1.1.0.tar.gz"
-tar -czf "$release_archive" -C "$temp_dir" 'BlackHostCLI-v1.1.0'
-blackhost_update_validate_archive "$release_archive" '1.1.0' "$temp_dir/validated-release"
+release_archive="$temp_dir/blackhost-v1.2.0.tar.gz"
+tar -czf "$release_archive" -C "$temp_dir" 'BlackHostCLI-v1.2.0'
+blackhost_update_validate_archive "$release_archive" '1.2.0' "$temp_dir/validated-release"
 [[ "$(BLACKHOST_ROOT="$temp_dir/validated-release" \
-  "$temp_dir/validated-release/bin/blackhost" version)" == 'blackhost 1.1.0' ]]
+  "$temp_dir/validated-release/bin/blackhost" version)" == 'blackhost 1.2.0' ]]
 
 panel_info_fixture=$'+-----------------+--------+\n| Panel Version   | 1.12.3 |\n| Latest Version  | 1.12.4 |\n+-----------------+--------+'
 [[ "$(pterodactyl_panel_info_value "Panel Version" "$panel_info_fixture")" == "1.12.3" ]]
@@ -377,5 +405,83 @@ dummy_install() {
 }
 BLACKHOST_RAW_LOGS=1 run_with_progress "smoke-install" dummy_install >/dev/null
 grep -qF 'test instalatora' "$BLACKHOST_LOG_DIR"/*.log
+
+
+! "$ROOT/bin/blackhost" provision >/dev/null 2>&1
+! "$ROOT/bin/blackhost" provision --token invalid_token >/dev/null 2>&1
+! "$ROOT/bin/blackhost" provision --token-file /tmp/nonexistent_token_file_xyz >/dev/null 2>&1
+if missing_option_output=$("$ROOT/bin/blackhost" provision --token 2>&1); then
+  false
+fi
+[[ "$missing_option_output" == *"--token"* ]]
+
+[[ "$(json_escape $'quote" slash\\ newline\n')" == 'quote\" slash\\ newline\n' ]]
+provision_valid_api_url 'https://dash.blackhost.pl/api/v1'
+provision_valid_api_url 'http://localhost:3000/api/v1'
+provision_valid_api_url 'http://127.0.0.1/api/v1'
+! provision_valid_api_url 'http://localhost.example.com/api/v1'
+! provision_valid_api_url 'http://dash.blackhost.pl/api/v1'
+! provision_valid_api_url 'https://user@dash.blackhost.pl/api/v1'
+provision_valid_secret 'Safe-password_123'
+! provision_valid_secret "unsafe'password123"
+! provision_valid_secret 'short'
+
+if command -v jq >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1; then
+  nested_json='{"installation":{"configuration":{"email":"nested@example.com"}},"email":"wrong@example.com"}'
+  [[ "$(provision_json_get "$nested_json" '.installation.configuration.email')" == 'nested@example.com' ]]
+  provision_json_valid "$nested_json"
+  ! provision_json_valid '{invalid json}'
+  [[ "$(provision_json_boolean '{"enabled":true}' '.enabled' false)" == true ]]
+  ! provision_json_boolean '{"enabled":"yes"}' '.enabled' false >/dev/null
+fi
+
+(
+  BLACKHOST_LOCK_HELD=1
+  BLACKHOST_STATE_DIR="$temp_dir/lock-state"
+  BLACKHOST_LOG_DIR="$temp_dir/lock-logs"
+  flock() { return 0; }
+  ensure_runtime_dirs() { mkdir -p "$BLACKHOST_STATE_DIR" "$BLACKHOST_LOG_DIR"; }
+  acquire_operation_lock
+  [[ "$BLACKHOST_OPERATION_LOCK_HELD" == true ]]
+  release_operation_lock
+)
+
+(
+  require_linux() { return 0; }
+  require_root() { return 0; }
+  require_commands() { return 0; }
+  provision_require_json_parser() { return 0; }
+  ensure_runtime_dirs() { return 0; }
+  acquire_operation_lock() { return 0; }
+  provision_json_valid() { return 0; }
+  provision_curl() { printf '{}'; }
+  provision_report_progress() { return 0; }
+  provision_complete() { return 0; }
+  remove_state() { return 0; }
+  ui_info() { return 0; }
+  ui_success() { return 0; }
+  ui_error() { return 0; }
+  phpmyadmin_fqdn() { printf 'db.example.com'; }
+  provision_json_get() {
+    case "$2" in
+      .success) printf true ;;
+      .installation.id) printf installation_123 ;;
+      .execution_token) printf execution_01234567890123456789 ;;
+      .installation.application) printf phpmyadmin ;;
+      .installation.configuration.action) printf uninstall ;;
+      .installation.configuration.remove_certificate) printf false ;;
+      .installation.configuration.db_user) printf pma_admin ;;
+    esac
+  }
+  provision_run_with_progress() {
+    [[ "$1" == phpmyadmin-uninstall ]]
+    [[ "$PMA_REMOVE_DB_USER" == false ]]
+    [[ "$PMA_REMOVE_CERT" == false ]]
+    [[ "$PMA_FQDN" == db.example.com ]]
+    [[ -z "$PMA_DB_USER" ]]
+  }
+
+  blackhost_provision_run --token bhj_test_claim_token
+)
 
 printf 'Smoke tests: OK\n'
